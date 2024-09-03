@@ -8,7 +8,6 @@ from langchain_community.vectorstores import FAISS
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.chains.question_answering import load_qa_chain
 from langchain.prompts import PromptTemplate
-
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -33,48 +32,40 @@ def get_vector_store(text_chunks):
     vector_store = FAISS.from_texts(text_chunks, embedding=embeddings)
     vector_store.save_local("faiss_index")
 
-def get_conversational_chain():
-
+def get_conversational_chain(temperature):
     prompt_template = """
     
     Context:\n {context}?\n
     Question: \n{question}\n
-
     Answer:
     """
-
     model = ChatGoogleGenerativeAI(model="gemini-pro",
-                             temperature=0.8)
-
+                             temperature=temperature)
     prompt = PromptTemplate(template = prompt_template, input_variables = ["context", "question"])
     chain = load_qa_chain(model, chain_type="stuff", prompt=prompt)
-
     return chain
 
-def user_input(user_question):
+def user_input(user_question, temperature):
     embeddings = GoogleGenerativeAIEmbeddings(model = "models/embedding-001")
     
     new_db = FAISS.load_local("faiss_index", embeddings, allow_dangerous_deserialization=True)
-
     docs = new_db.similarity_search(user_question)
-
-    chain = get_conversational_chain()
-
+    chain = get_conversational_chain(temperature)
     response = chain(
         {"input_documents":docs, "question": user_question}
         , return_only_outputs=True)
-
     print(response)
     st.write("Reply: ", response["output_text"])
 
 def main():
     st.set_page_config("Chat PDF")
     st.header("Chat with PDF using Gemini💁")
-
+    
+    temperature = st.slider("Set temperature", min_value=0.0, max_value=2.0, value=0.7, step=0.1)
+    
     user_question = st.text_input("Ask a Question from the PDF Files")
-
     if user_question:
-        user_input(user_question)
+        user_input(user_question, temperature)
 
     with st.sidebar:
         st.title("Menu:")
